@@ -5,19 +5,20 @@
 #   --skip-install              不装 claude/codex/skill-loom(离线或只刷新配置)
 #   --no-link                   不在 BIN_DIR(默认 ~/.local/bin)创建启动器软链
 #   --no-doctor                 跳过最后的自检
+#   --zsh                       渲染 PROFILE_HOME/zsh/.zshrc(需让个人 SSH 会话 export ZDOTDIR=PROFILE_HOME/zsh)
 # 环境变量: PROFILE_HOME / WORKSPACE_ROOT / MODULES / BIN_DIR 可临时覆盖 profile.env
 set -euo pipefail
 . "$(dirname "$(readlink -f "$0")")/lib/common.sh"
 
-SYNC=0; INSTALL=1; LINK=1; DOCTOR=1
+SYNC=0; INSTALL=1; LINK=1; DOCTOR=1; ZSH=0
 for a in "$@"; do case "$a" in
-  --sync) SYNC=1;; --skip-install) INSTALL=0;; --no-link) LINK=0;; --no-doctor) DOCTOR=0;;
+  --sync) SYNC=1;; --skip-install) INSTALL=0;; --no-link) LINK=0;; --no-doctor) DOCTOR=0;; --zsh) ZSH=1;;
   -h|--help) sed -n '2,9p' "$0"; exit 0;; *) die "unknown option: $a";; esac; done
 
 [ $SYNC -eq 1 ] && { say "== git pull"; git -C "$REPO" pull --ff-only; }
 say "REPO=$REPO"; say "PROFILE_HOME=$PROFILE_HOME"; say "MODULES='$MODULES' WORKSPACE_ROOT=$WORKSPACE_ROOT"
-mkdir -p "$PROFILE_HOME"/{claude,codex,claude-home,tools} "$STATE"
-chmod 700 "$PROFILE_HOME/claude" "$PROFILE_HOME/codex" "$PROFILE_HOME/claude-home"
+mkdir -p "$PROFILE_HOME"/{claude,codex,claude-home,codex-home,tools} "$STATE"
+chmod 700 "$PROFILE_HOME/claude" "$PROFILE_HOME/codex" "$PROFILE_HOME/claude-home" "$PROFILE_HOME/codex-home"
 
 # ---------- 1. 配置渲染 ----------
 say "== render config"
@@ -31,6 +32,11 @@ put "$PROFILE_HOME/claude/settings.json" <"$REPO/claude/settings.json"
 # shellcheck disable=SC2046
 compose "$REPO/codex/config.base.toml" $(mpath codex-config.toml) "$PROFILE_HOME/config.local.toml" | subst | put "$PROFILE_HOME/codex/config.toml"
 for f in "$REPO"/codex/agents/*.toml; do put "$PROFILE_HOME/codex/agents/$(basename "$f")" <"$f"; done
+
+if [ $ZSH -eq 1 ]; then
+  sed "s#@REPO@#$REPO#g" "$REPO/env/zshrc.tmpl" | put "$PROFILE_HOME/zsh/.zshrc"
+  say "  zsh: 个人会话需 export ZDOTDIR=$PROFILE_HOME/zsh 才会加载"
+fi
 
 # ---------- 2. skills ----------
 say "== sync skills"
@@ -81,16 +87,20 @@ if [ $INSTALL -eq 1 ]; then
       HOME="$PROFILE_HOME/claude-home" bash -c "curl -fsSL https://claude.ai/install.sh | bash -s -- $CLAUDE_VERSION" \
       || warn "claude 安装失败;可手动安装后确保存在 $cbin"
   fi
-  xbin="${CODEX_BIN:-$PROFILE_HOME/tools/codex/node_modules/.bin/codex}"
-  if [ ! -x "$xbin" ] && ! command -v codex >/dev/null 2>&1; then
-    if command -v npm >/dev/null 2>&1; then
-      say "  installing codex $CODEX_VERSION via npm into $PROFILE_HOME/tools/codex"
-      npm install --prefix "$PROFILE_HOME/tools/codex" "@openai/codex@$CODEX_VERSION" || warn "codex 安装失败"
-    else
-      warn "未找到 codex 和 npm;请安装 codex 后在 profile.env 设置 CODEX_BIN"
-    fi
+  # codex: 显式 CODEX_BIN 优先;否则装一份私有副本(官方 install.sh,HOME/CODEX_HOME 重定向,不碰共享安装)
+  xbin="$PROFILE_HOME/codex-home/.local/bin/codex"
+  if [ -n "${CODEX_BIN:-}" ]; then
+    say "  codex: 使用 profile.env 指定的 $CODEX_BIN"
+  elif [ -x "$xbin" ] && [ "$("$xbin" --version 2>/dev/null | awk '{print $NF}')" = "$CODEX_VERSION" ]; then
+    say "  codex $CODEX_VERSION ok (private)"
   else
-    say "  codex: ${xbin} (版本核对见 doctor)"
+    say "  installing codex $CODEX_VERSION into $PROFILE_HOME/codex-home (HOME 重定向,不碰共享安装)"
+    mkdir -p "$PROFILE_HOME/codex-home"
+    curl -fsSL https://chatgpt.com/codex/install.sh -o "$STATE/codex-install.sh" \
+      && env -u CODEX_HOME HOME="$PROFILE_HOME/codex-home" CODEX_HOME="$PROFILE_HOME/codex" \
+             CODEX_INSTALL_DIR="$PROFILE_HOME/codex-home/.local/bin" CODEX_NON_INTERACTIVE=1 \
+             bash "$STATE/codex-install.sh" --release "$CODEX_VERSION" \
+      || warn "codex 安装失败;可手动安装后在 profile.env 设置 CODEX_BIN"
   fi
   if [ ! -d "$PROFILE_HOME/tools/skill-loom/.git" ] && [ ! -f "$PROFILE_HOME/tools/skill-loom/pyproject.toml" ]; then
     say "  cloning skill-loom @ ${SKILL_LOOM_COMMIT:0:8}"

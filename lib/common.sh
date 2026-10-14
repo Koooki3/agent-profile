@@ -1,12 +1,13 @@
 # shellcheck shell=bash
 # 公共库: 解析 REPO / PROFILE_HOME / 模块,提供渲染与备份函数。
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-_o_ph="${PROFILE_HOME:-}"; _o_ws="${WORKSPACE_ROOT:-}"; _o_mod="${MODULES-__unset__}"
+_o_ph="${PROFILE_HOME:-}"; _o_ws="${WORKSPACE_ROOT:-}"; _o_mod="${MODULES-__unset__}"; _o_cb="${CODEX_BIN-__unset__}"
 [ -f "$REPO/profile.env" ] && . "$REPO/profile.env"
 . "$REPO/pins.env"
 [ -n "$_o_ph" ] && PROFILE_HOME="$_o_ph"
 [ -n "$_o_ws" ] && WORKSPACE_ROOT="$_o_ws"
 [ "$_o_mod" != "__unset__" ] && MODULES="$_o_mod"
+[ "$_o_cb" != "__unset__" ] && CODEX_BIN="$_o_cb"
 PROFILE_HOME="${PROFILE_HOME:-$(dirname "$REPO")}"
 WORKSPACE_ROOT="${WORKSPACE_ROOT:-$HOME/work}"
 MODULES="${MODULES:-}"

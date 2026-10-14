@@ -11,9 +11,9 @@ export AGENT_PROFILE_HOME="$BASE"
 export CODEX_HOME="$BASE/codex"
 . "$AGENT_REPO/env/git-agent-env.sh"
 
-# 二进制解析顺序: AGENT_CODEX_BIN > profile.env 的 CODEX_BIN > profile 内安装 > PATH 上的 codex
+# 二进制解析顺序: AGENT_CODEX_BIN > profile.env 的 CODEX_BIN > profile 内私有安装 > PATH 上的 codex(共享,doctor 会警告)
 bin="${AGENT_CODEX_BIN:-${CODEX_BIN:-}}"
-[ -z "$bin" ] && [ -x "$BASE/tools/codex/node_modules/.bin/codex" ] && bin="$BASE/tools/codex/node_modules/.bin/codex"
+[ -z "$bin" ] && [ -x "$BASE/codex-home/.local/bin/codex" ] && bin="$BASE/codex-home/.local/bin/codex"
 [ -z "$bin" ] && bin="$(command -v codex || true)"
 [ -n "$bin" ] || { echo "codex executable not found; run bootstrap.sh" >&2; exit 127; }
 exec "$bin" --no-daemon "$@"

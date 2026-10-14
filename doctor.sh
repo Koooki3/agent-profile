@@ -56,9 +56,12 @@ done; done
 say "[4] 二进制与版本"
 cbin="$PROFILE_HOME/claude-home/.local/bin/claude"
 if [ -x "$cbin" ]; then v="$("$cbin" --version 2>/dev/null | awk '{print $1}')"; [ "$v" = "$CLAUDE_VERSION" ] && ok "claude $v" || wr "claude $v != pin $CLAUDE_VERSION"; else bad "未安装 claude($cbin)"; fi
-xbin="${CODEX_BIN:-}"; [ -z "$xbin" ] && [ -x "$PROFILE_HOME/tools/codex/node_modules/.bin/codex" ] && xbin="$PROFILE_HOME/tools/codex/node_modules/.bin/codex"
-[ -z "$xbin" ] && xbin="$(command -v codex || true)"
-if [ -n "$xbin" ] && [ -x "$xbin" ]; then v="$("$xbin" --version 2>/dev/null | awk '{print $NF}')"; [ "$v" = "$CODEX_VERSION" ] && ok "codex $v ($xbin)" || wr "codex $v != pin $CODEX_VERSION ($xbin)"; else bad "未找到 codex"; fi
+xbin="${CODEX_BIN:-}"; [ -z "$xbin" ] && [ -x "$PROFILE_HOME/codex-home/.local/bin/codex" ] && xbin="$PROFILE_HOME/codex-home/.local/bin/codex"
+shared=0; [ -z "$xbin" ] && { xbin="$(command -v codex || true)"; shared=1; }
+[ -n "${CODEX_BIN:-}" ] && [ "${CODEX_BIN:-}" = "$HOME/.local/bin/codex" ] && shared=1
+if [ -n "$xbin" ] && [ -x "$xbin" ]; then v="$("$xbin" --version 2>/dev/null | awk '{print $NF}')"; [ "$v" = "$CODEX_VERSION" ] && ok "codex $v ($xbin)" || wr "codex $v != pin $CODEX_VERSION ($xbin)"
+  [ $shared -eq 1 ] && wr "codex 来自共享安装($xbin),共享方升级会影响你;运行 bootstrap.sh(profile.env 不设 CODEX_BIN)可安装私有副本"
+else bad "未找到 codex"; fi
 
 say "[5] 登录状态(只检查文件是否存在,不读取内容)"
 [ -s "$PROFILE_HOME/claude/.credentials.json" ] && ok "claude 已登录" || wr "claude 未登录: claude-kooki3 → /login"

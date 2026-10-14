@@ -25,6 +25,7 @@ codex-kooki3 login                   # 无头机器加 --device-auth
 | 启用/停用某个 skill 的某个 host | 改 `skills/skills.conf` → `./bootstrap.sh` |
 | 升级 claude/codex | 改 `pins.env` → `./bootstrap.sh` |
 | 只刷新配置、不联网 | `./bootstrap.sh --skip-install --no-link` |
+| 让个人 SSH 会话里的 `claude`/`codex` 命令仍走共享版本 | `./bootstrap.sh --zsh`,并在该会话 `export ZDOTDIR=$PROFILE_HOME/zsh` |
 
 `bootstrap.sh` 覆盖任何与仓库不一致的 live 文件之前,先把旧版本备份到
 `PROFILE_HOME/.profile-state/backups/<时间戳>/`。
@@ -47,6 +48,9 @@ pins.env    claude / codex / skill-loom 版本
 - `config.local.toml`(放在 PROFILE_HOME 下,本机专用的 codex 配置片段,会被拼到 config.toml 末尾)
 
 ## 已知限制
-- claude 官方安装脚本的"指定版本"参数与 codex 的 npm 安装路径,只在本机已有二进制的情况下验证过
-  跳过逻辑;**全新机器上的实际下载安装尚未实测**,首次部署请留意 bootstrap 输出的 WARN。
-- skills 采用复制而非软链;未验证 Claude Code / Codex 是否都识别目录软链。
+- 二进制安装已在全新临时目录实测(2026-10-14): claude 用官方 `install.sh` 加版本参数,codex 用官方
+  `chatgpt.com/codex/install.sh --release`;两者都把 `HOME` 重定向到 PROFILE_HOME 内(`claude-home/`、
+  `codex-home/`),不写共享安装与真实 shell rc。codex 不需要 node/npm。
+- 在 `profile.env` 设置 `CODEX_BIN` 会跳过 codex 私有安装并改用该二进制(doctor 会提示它来自共享安装)。
+- skills 采用复制而非软链;未验证 Claude Code / Codex 是否都识别目录软链(需要登录态才能测)。
+- 仍未覆盖: 无网络机器的离线安装、macOS/Windows。
