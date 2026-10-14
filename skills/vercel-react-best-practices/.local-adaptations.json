@@ -1,0 +1,7 @@
+{
+  "schema": 1,
+  "date": "2026-10-13",
+  "reason": "Point compiled-guide links to the installed rules directory.",
+  "upstream_basis": "See .source-commit, or the profile tool's DEPLOYED_FROM.txt for team-mode.",
+  "imported_files": []
+}

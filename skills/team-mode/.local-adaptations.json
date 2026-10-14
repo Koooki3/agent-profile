@@ -1,0 +1,7 @@
+{
+  "schema": 1,
+  "date": "2026-10-13",
+  "reason": "Match current host inheritance schema, keep role changes in CODEX_HOME, and repair installed documentation links. Follow the user-requested parent-setting inheritance for every installed role and expert dispatch.",
+  "upstream_basis": "See .source-commit, or the profile tool's DEPLOYED_FROM.txt for team-mode.",
+  "imported_files": []
+}

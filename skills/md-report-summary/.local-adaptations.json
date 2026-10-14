@@ -1,0 +1,7 @@
+{
+  "schema": 1,
+  "date": "2026-10-13",
+  "reason": "Use an explicit image-path placeholder to avoid classifying the example as a required local file.",
+  "upstream_basis": "See .source-commit, or the profile tool's DEPLOYED_FROM.txt for team-mode.",
+  "imported_files": []
+}

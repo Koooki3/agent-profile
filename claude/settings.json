@@ -1,0 +1,13 @@
+{
+  "env": {
+    "OIL_NO_UPDATE_CHECK": "1"
+  },
+  "model": "sonnet",
+  "modelSettings": {
+    "claude-sonnet-5-5": {
+      "effortLevel": "high"
+    }
+  },
+  "autoUpdatesChannel": "stable",
+  "theme": "auto"
+}

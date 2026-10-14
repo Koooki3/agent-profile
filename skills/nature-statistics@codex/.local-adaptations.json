@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "date": "2026-10-13",
+  "reason": "Vendor pinned NMI/statistical resources with their direct dependencies and checker; qualify policy freshness, optional companions, and interval-overlap inference; handle sentence-final numeric precision locally.",
+  "upstream_basis": "See .source-commit, or the profile tool's DEPLOYED_FROM.txt for team-mode.",
+  "imported_files": [
+    {
+      "source_path": "Yuan1z0825/nature-skills/skills/nature-shared/core/consistency-sweep.md",
+      "installed_path": "references/shared/core/consistency-sweep.md",
+      "upstream_sha256": "35a540c10a2c14415b7181588f612e16943cbc4e49f1428010d67c480051f0f9"
+    },
+    {
+      "source_path": "Yuan1z0825/nature-skills/skills/nature-shared/core/research-compliance.md",
+      "installed_path": "references/shared/core/research-compliance.md",
+      "upstream_sha256": "0ac172d2af0c2089acd7280712a89b23a5f232d4e436e9ae78dd501ff30cd855"
+    },
+    {
+      "source_path": "Yuan1z0825/nature-skills/skills/nature-shared/core/ethics.md",
+      "installed_path": "references/shared/core/ethics.md",
+      "upstream_sha256": "065db5761d72c295eb1ed5c231deb0b0bcbb0f1065d530f994c044398bd75056"
+    },
+    {
+      "source_path": "Yuan1z0825/nature-skills/skills/nature-shared/journal-formats/nature-machine-intelligence.md",
+      "installed_path": "references/shared/journal-formats/nature-machine-intelligence.md",
+      "upstream_sha256": "d62a418fbd67841e745f553b98a267b5a01c9445457a07a0121095ce76fad0af"
+    },
+    {
+      "source_path": "Yuan1z0825/nature-skills/skills/nature-shared/scripts/check_consistency.py",
+      "installed_path": "scripts/check_consistency.py",
+      "upstream_sha256": "670ccc43aad4639fe3525d8dce7443d85f462f99958b560a539cc5b6b0b072a6"
+    }
+  ]
+}

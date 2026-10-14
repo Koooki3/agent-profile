@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "date": "2026-10-13",
+  "reason": "Vendor pinned manuscript-discipline resource and make all resource paths self-contained.",
+  "upstream_basis": "See .source-commit, or the profile tool's DEPLOYED_FROM.txt for team-mode.",
+  "imported_files": [
+    {
+      "source_path": "Yuan1z0825/nature-skills/skills/nature-shared/core/main-text-discipline.md",
+      "installed_path": "references/shared/core/main-text-discipline.md",
+      "upstream_sha256": "d43190c4d617096c1088bb5452cec5b0ae13f5d4947c2b21c28315181f051b8e"
+    }
+  ]
+}

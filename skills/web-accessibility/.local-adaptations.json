@@ -1,0 +1,7 @@
+{
+  "schema": 1,
+  "date": "2026-10-13",
+  "reason": "Make the uninstalled companion explicitly optional.",
+  "upstream_basis": "See .source-commit, or the profile tool's DEPLOYED_FROM.txt for team-mode.",
+  "imported_files": []
+}

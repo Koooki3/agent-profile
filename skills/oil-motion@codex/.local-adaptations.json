@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "date": "2026-10-13",
+  "reason": "Restore pinned component README and distinguish upstream development checks from the deployed runtime bundle.",
+  "upstream_basis": "See .source-commit, or the profile tool's DEPLOYED_FROM.txt for team-mode.",
+  "imported_files": [
+    {
+      "source_path": "oil-oil/oil-motion/scripts/credential-ui/README.md",
+      "installed_path": "scripts/credential-ui/README.md",
+      "upstream_sha256": "c66161233e7b45ed3027d43a1dacbb3f5eca68c8db52cac20d3781f4a868f786"
+    }
+  ]
+}

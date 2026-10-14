@@ -1,0 +1,9 @@
+profile.env
+*.local.*
+.profile-state/
+__pycache__/
+.DS_Store
+# 凭据与账号状态: 永远不入库
+.credentials.json
+auth.json
+.claude.json
