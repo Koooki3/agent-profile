@@ -22,7 +22,7 @@ export GIT_COMMITTER_EMAIL="$_GIT_EMAIL"
 
 unset _GIT_NAME _GIT_EMAIL IDENTITY
 
-# kooki3 credential isolation
+# personal-agent credential isolation
 
 # 禁止使用共享终端的 VS Code Git 认证
 unset GIT_ASKPASS

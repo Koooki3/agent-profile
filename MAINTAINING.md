@@ -1,8 +1,8 @@
 # 维护约定(agent 读这个)
 
 仓库由 agent 依据本机运行记录维护(用户 2026-10-14 授权)。2026-10-14 用户进一步授权 agent 对
-`Koooki3/agent-profile` 使用最大权限,包括 push。这是对根 `AGENTS.md` / 全局 `CLAUDE.md`
-"只本地提交、不 push"的**仅限本仓库**的例外;其他仓库规则不变。
+`Koooki3/agent-profile` 使用最大权限,包括 push。这是对宿主环境全局指令中
+"只本地提交、不 push"规则的**仅限本仓库**的例外;其他仓库规则不变。
 
 远端权限上限 = deploy key 在 GitHub 上的权限(读写该仓库)。改仓库设置、删仓库、开 PR 需要用户另行提供
 `gh`/PAT,在此之前不可用。
@@ -22,9 +22,11 @@
 ## 不变量(改动不得破坏)
 - 启动器隔离项: `CLAUDE_CONFIG_DIR`/`CODEX_HOME`、`unset ANTHROPIC_*`、`DISABLE_AUTOUPDATER=1`、个人 Git 身份、空 `credential.helper`。`doctor [1]` 行为级断言它们。
 - 凭据与账号状态永不入库(`.credentials.json`、`auth.json`、`.claude.json`、`skills/synced`);`doctor [6]` 扫描。
-- 不改 `~/.claude`、`~/.codex`;不用 `~/.ssh` 里除 `.agent-profiles-zihao/ssh/id_ed25519_koooki3` 以外的密钥。
+- 不改 `~/.claude`、`~/.codex`;只用 `$PROFILE_HOME/ssh/id_ed25519_koooki3`(本仓库专用密钥),不用 `~/.ssh` 里其他密钥。
 - `bootstrap.sh` 覆盖 live 前必须先备份到 `.profile-state/backups/`。
-- 本机现有 `~/.local/bin/{claude,codex}-kooki3` 是旧启动器,未经用户同意不替换。
+- 目标机器上已有的同名启动器(不是指向本仓库的软链)会被 bootstrap 备份后替换;在用户已有的工作环境里跑 bootstrap 前先征得同意。
+- **仓库保持项目无关**: 具体项目/机器的指令、路径、信任目录放 `$PROFILE_HOME/modules.local/<name>/`(仓库之外),不要写进 `modules/` 或 base 文件。`doctor [6]` 会拦截机器绝对路径。
+- 已推送的历史不为"整洁"而改写。
 
 ## 提交与推送
 - 用个人身份: `bash -c '. env/git-agent-env.sh; git commit ...'`(Bash 工具的 shell 是 zsh,不能直接 source)。

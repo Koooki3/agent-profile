@@ -13,7 +13,7 @@ export GIT_SSH_COMMAND="ssh -i ~/.agent-profiles/kooki3/ssh/id_ed25519_koooki3 -
 git clone git@github.com:Koooki3/agent-profile.git ~/.agent-profiles/kooki3/repo
 cd ~/.agent-profiles/kooki3/repo
 git config core.sshCommand "$GIT_SSH_COMMAND"   # 之后 pull/push 自动使用该密钥
-cp profile.env.example profile.env   # 按需改 WORKSPACE_ROOT / MODULES(LEVI 机器: MODULES="levi")
+cp profile.env.example profile.env   # 按需改 MODULES / WORKSPACE_ROOT(默认留空 = 只用通用配置)
 ./bootstrap.sh                       # 渲染配置 + 同步 skills + 装二进制 + 链接启动器 + doctor
 claude-kooki3                        # 进入后 /login
 codex-kooki3 login                   # 无头机器加 --device-auth
@@ -42,7 +42,8 @@ bin/        claude-kooki3, codex-kooki3(路径由自身位置推导;隔离项: C
 env/        git-agent-env.sh, git-identity.gitconfig, shared-cli-shell.zsh(共享 claude/codex 的 shell 函数,按需 source)
 skills/     <name>/ 公共实体;<name>@codex/ 仅 codex 有差异时的变体;skills.conf 记录各 skill 启用的 host
 claude/     settings.json, CLAUDE.base.md        codex/  config.base.toml, AGENTS.base.md, agents/*.toml
-modules/    按机器启用的片段(levi: LEVI 入口说明 + codex trusted 项目);模板变量 @WORKSPACE_ROOT@
+modules/    按项目/机器启用的配置片段的机制与 _template(见 modules/README.md);项目专属内容放仓库之外的
+            PROFILE_HOME/modules.local/<name>/,不进 git。模板变量 @WORKSPACE_ROOT@
 pins.env    claude / codex / skill-loom 版本
 ```
 

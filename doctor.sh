@@ -5,6 +5,7 @@ set -uo pipefail
 . "$(dirname "$(readlink -f "$0")")/lib/common.sh"
 fail=0; ok() { say "  ok    $*"; }; bad() { say "  FAIL  $*"; fail=1; }; wr() { say "  warn  $*"; }
 
+enabled_modules >/dev/null || exit 1
 say "[1] 启动器隔离(以 env 代替真实二进制,观察注入环境)"
 stub="$(mktemp)"; printf '#!/bin/sh\nexec /usr/bin/env\n' >"$stub"; chmod +x "$stub"   # 忽略参数,只打印环境
 probe() { # launcher bin-var
@@ -27,17 +28,18 @@ chk_not "$out" '^(GIT_ASKPASS|VSCODE_GIT_ASKPASS_MAIN)='  "codex: 共享终端 a
 
 say "[2] 配置漂移(live 与重新渲染结果对比)"
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp" "$stub"' EXIT
-mods="$(enabled_modules)"; mpath() { for m in $mods; do [ -f "$REPO/modules/$m/$1" ] && echo "$REPO/modules/$m/$1"; done; }
 # shellcheck disable=SC2046
-{ compose "$REPO/claude/CLAUDE.base.md" $(mpath claude.md) | subst >"$tmp/claude.md"
-  compose "$REPO/codex/AGENTS.base.md" $(mpath codex.md) | subst >"$tmp/agents.md"
-  compose "$REPO/codex/config.base.toml" $(mpath codex-config.toml) "$PROFILE_HOME/config.local.toml" | subst >"$tmp/config.toml"; }
+{ compose "$REPO/claude/CLAUDE.base.md" $(module_files claude.md) | subst >"$tmp/claude.md"
+  compose "$REPO/codex/AGENTS.base.md" $(module_files codex.md) | subst >"$tmp/agents.md"
+  compose "$REPO/codex/config.base.toml" $(module_files codex-config.toml) "$PROFILE_HOME/config.local.toml" | subst >"$tmp/config.toml"; }
 cmpf() { if [ ! -e "$2" ]; then bad "$3 缺失(运行 bootstrap.sh)"; elif cmp -s "$1" "$2"; then ok "$3"; else wr "$3 与仓库不一致(live 被在线修改?diff 查看;bootstrap.sh 会先备份再覆盖)"; fi; }
 cmpf "$tmp/claude.md"  "$PROFILE_HOME/claude/CLAUDE.md"   "claude/CLAUDE.md"
 cmpf "$tmp/agents.md"  "$PROFILE_HOME/codex/AGENTS.md"    "codex/AGENTS.md"
 if [ -e "$PROFILE_HOME/codex/config.toml" ] && python3 - "$tmp/config.toml" "$PROFILE_HOME/codex/config.toml" <<'PY' 2>/dev/null
 import sys,tomllib
-a,b=(tomllib.load(open(f,'rb')) for f in sys.argv[1:3]); sys.exit(0 if a==b else 1)
+a,b=(tomllib.load(open(f,'rb')) for f in sys.argv[1:3])
+for d in (a,b): d.pop('tui',None)   # tui 表由 codex 自己维护(界面状态),不比较
+sys.exit(0 if a==b else 1)
 PY
 then ok "codex/config.toml(语义一致)"; else cmpf "$tmp/config.toml" "$PROFILE_HOME/codex/config.toml" "codex/config.toml"; fi
 cmpf "$REPO/claude/settings.json" "$PROFILE_HOME/claude/settings.json" "claude/settings.json"
@@ -74,6 +76,9 @@ if git -C "$REPO" rev-parse >/dev/null 2>&1; then
   [ -z "$bad_names" ] && ok "无凭据/状态类文件名" || bad "出现不该入库的文件: $bad_names"
   hits="$(cd "$REPO" && grep -rIlE '(^|[^A-Za-z0-9_-])(sk-(ant-)?[A-Za-z0-9_-]{24,}|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|AKIA[0-9A-Z]{16})|BEGIN [A-Z ]*PRIVATE KEY|xox[bp]-[0-9A-Za-z-]{10,}' --exclude-dir=.git . || true)"
   [ -z "$hits" ] && ok "无疑似密钥内容" || bad "疑似密钥: $hits"
+  # 通用性: 仓库本体(skills 之外)不得含具体机器的绝对路径;项目专属内容放 modules.local/(仓库之外)
+  paths="$(cd "$REPO" && git ls-files -co --exclude-standard | grep -v '^skills/' | xargs grep -nIE '/hom[e]/[A-Za-z0-9_.-]+|/User[s]/[A-Za-z0-9_.-]+' 2>/dev/null || true)"
+  [ -z "$paths" ] && ok "仓库本体无机器绝对路径" || bad "含机器绝对路径(应改为 \$HOME / @WORKSPACE_ROOT@ / 放进 modules.local): $paths"
 fi
 [ $fail -eq 0 ] && say "doctor: PASS" || say "doctor: FAIL"
 exit $fail

@@ -6,7 +6,7 @@
 #   --no-link                   不在 BIN_DIR(默认 ~/.local/bin)创建启动器软链
 #   --no-doctor                 跳过最后的自检
 #   --zsh                       渲染 PROFILE_HOME/zsh/.zshrc(需让个人 SSH 会话 export ZDOTDIR=PROFILE_HOME/zsh)
-# 环境变量: PROFILE_HOME / WORKSPACE_ROOT / MODULES / BIN_DIR 可临时覆盖 profile.env
+# 环境变量: PROFILE_HOME / WORKSPACE_ROOT / MODULES / BIN_DIR / CODEX_BIN 可临时覆盖 profile.env
 set -euo pipefail
 . "$(dirname "$(readlink -f "$0")")/lib/common.sh"
 
@@ -17,20 +17,19 @@ for a in "$@"; do case "$a" in
 
 [ $SYNC -eq 1 ] && { say "== git pull"; git -C "$REPO" pull --ff-only; }
 say "REPO=$REPO"; say "PROFILE_HOME=$PROFILE_HOME"; say "MODULES='$MODULES' WORKSPACE_ROOT=$WORKSPACE_ROOT"
+enabled_modules >/dev/null   # 提前校验 MODULES,名字写错就在这里终止
 mkdir -p "$PROFILE_HOME"/{claude,codex,claude-home,codex-home,tools} "$STATE"
 chmod 700 "$PROFILE_HOME/claude" "$PROFILE_HOME/codex" "$PROFILE_HOME/claude-home" "$PROFILE_HOME/codex-home"
 
 # ---------- 1. 配置渲染 ----------
 say "== render config"
-mods="$(enabled_modules)"
-mpath() { for m in $mods; do [ -f "$REPO/modules/$m/$1" ] && echo "$REPO/modules/$m/$1"; done; }
 # shellcheck disable=SC2046
-compose "$REPO/claude/CLAUDE.base.md" $(mpath claude.md) | subst | put "$PROFILE_HOME/claude/CLAUDE.md"
+compose "$REPO/claude/CLAUDE.base.md" $(module_files claude.md) | subst | put "$PROFILE_HOME/claude/CLAUDE.md"
 # shellcheck disable=SC2046
-compose "$REPO/codex/AGENTS.base.md" $(mpath codex.md)   | subst | put "$PROFILE_HOME/codex/AGENTS.md"
+compose "$REPO/codex/AGENTS.base.md" $(module_files codex.md)   | subst | put "$PROFILE_HOME/codex/AGENTS.md"
 put "$PROFILE_HOME/claude/settings.json" <"$REPO/claude/settings.json"
 # shellcheck disable=SC2046
-compose "$REPO/codex/config.base.toml" $(mpath codex-config.toml) "$PROFILE_HOME/config.local.toml" | subst | put "$PROFILE_HOME/codex/config.toml"
+compose "$REPO/codex/config.base.toml" $(module_files codex-config.toml) "$PROFILE_HOME/config.local.toml" | subst | put "$PROFILE_HOME/codex/config.toml"
 for f in "$REPO"/codex/agents/*.toml; do put "$PROFILE_HOME/codex/agents/$(basename "$f")" <"$f"; done
 
 if [ $ZSH -eq 1 ]; then

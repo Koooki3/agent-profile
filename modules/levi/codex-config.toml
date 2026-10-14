@@ -1,5 +1,0 @@
-[projects."@WORKSPACE_ROOT@/LEVI"]
-trust_level = "trusted"
-
-[projects."@WORKSPACE_ROOT@/LEVI/lab/levi-hub"]
-trust_level = "trusted"

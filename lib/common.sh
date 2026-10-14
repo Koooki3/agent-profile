@@ -49,7 +49,15 @@ compose() {
   done
 }
 
-enabled_modules() { local m; for m in $MODULES; do [ -d "$REPO/modules/$m" ] || die "unknown module: $m"; echo "$m"; done; }
+# module 解析: PROFILE_HOME/modules.local/<m>(仓库之外,优先) > REPO/modules/<m>
+module_dir() {
+  if [ -d "$PROFILE_HOME/modules.local/$1" ]; then echo "$PROFILE_HOME/modules.local/$1"
+  elif [ -d "$REPO/modules/$1" ]; then echo "$REPO/modules/$1"
+  else return 1; fi
+}
+enabled_modules() { local m; for m in $MODULES; do [[ "$m" != _* ]] || die "module '$m' 是模板(以 _ 开头),请先复制为新名字: cp -r modules/_template <PROFILE_HOME>/modules.local/<name>"; module_dir "$m" >/dev/null || die "unknown module: $m (找不到 modules.local/$m 或 modules/$m)"; echo "$m"; done; }
+# 已启用 module 中存在的指定文件,按 MODULES 顺序输出
+module_files() { local m d; for m in $(enabled_modules); do d="$(module_dir "$m")"; [ -f "$d/$1" ] && echo "$d/$1"; done; return 0; }
 
 # skills.conf: "name = host1,host2"
 skill_names() { grep -E '^[A-Za-z0-9._-]+[[:space:]]*=' "$REPO/skills/skills.conf" | sed -E 's/[[:space:]]*=.*//'; }
