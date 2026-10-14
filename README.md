@@ -5,9 +5,14 @@
 
 ## 新机器部署
 ```bash
-# 先让 git 能访问私有仓库(deploy key 或 fine-grained PAT,只读本仓库即可)
+# 先让 git 能访问私有仓库: 每台机器各生成一把专用密钥,不要用共享账号的 ~/.ssh 默认密钥
+mkdir -p ~/.agent-profiles/kooki3/ssh && chmod 700 ~/.agent-profiles/kooki3/ssh
+ssh-keygen -t ed25519 -N "" -C "koooki3-agent-profile@$(hostname)" -f ~/.agent-profiles/kooki3/ssh/id_ed25519_koooki3
+cat ~/.agent-profiles/kooki3/ssh/id_ed25519_koooki3.pub   # 加到 GitHub: 仓库 Settings → Deploy keys(只读;需要在该机器 push 时勾 write)
+export GIT_SSH_COMMAND="ssh -i ~/.agent-profiles/kooki3/ssh/id_ed25519_koooki3 -o IdentitiesOnly=yes"
 git clone git@github.com:Koooki3/agent-profile.git ~/.agent-profiles/kooki3/repo
 cd ~/.agent-profiles/kooki3/repo
+git config core.sshCommand "$GIT_SSH_COMMAND"   # 之后 pull/push 自动使用该密钥
 cp profile.env.example profile.env   # 按需改 WORKSPACE_ROOT / MODULES(LEVI 机器: MODULES="levi")
 ./bootstrap.sh                       # 渲染配置 + 同步 skills + 装二进制 + 链接启动器 + doctor
 claude-kooki3                        # 进入后 /login
