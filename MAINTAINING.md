@@ -25,7 +25,9 @@
 - 启动器隔离项: `CLAUDE_CONFIG_DIR`/`CODEX_HOME`、凭据类环境变量清除(`KEEP_ENV` 例外)、`DISABLE_AUTOUPDATER=1`、
   独立 Git 身份、空 `credential.helper`。`doctor [1]` 做行为级断言。
 - 凭据与账号状态永不入库(`.credentials.json`、`auth.json`、`.claude.json`、`skills/synced`、`profile.env`);`doctor [6]` 扫描。
-- `bootstrap.sh` 覆盖 live 前必须先备份到 `.profile-state/backups/`。
+- `bootstrap.sh` 覆盖 live 前必须先备份到 `.profile-state/backups/`;同一 profile 持锁串行;末尾 doctor 失败必须使 bootstrap 非零退出(`tests/smoke.sh` 有负向测试)。
+- 外部输入(`AGENT_NAME`、`MODULES`、`SKILLS`、`PROFILE_HOME`、skills.conf 名字)一律校验为单段名称/受限路径,不得拼接后直接用于文件操作。
+- `import-live.sh` 只导入普通文件构成的 skill;软链/特殊文件拒绝。导入后必须 `git diff` 审阅再提交。
 - **仓库保持项目无关、人无关**: 具体项目/机器/个人的指令、路径、身份、偏好放 `profile.env`、
   `$PROFILE_HOME/modules.local/<name>/` 或 `*.local.*`(都在仓库之外),不要写进 `modules/`、base 文件或脚本。
   `doctor [6]` 会拦截机器绝对路径;`tests/smoke.sh` 会拦截个人标识残留。

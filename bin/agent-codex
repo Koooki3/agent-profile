@@ -6,9 +6,10 @@ AGENT_REPO="$(dirname "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")")"
 BASE="$PROFILE_HOME"
 export AGENT_PROFILE_HOME="$BASE"
 export CODEX_HOME="$BASE/codex"
+export CODEX_SQLITE_HOME="$BASE/codex"   # 状态库位置也绑定到本 profile,防止被外部环境变量指向别处
 
 # 不继承可能属于共享账号的 OpenAI 凭据(KEEP_ENV 可显式保留)
-unset_isolated OPENAI_API_KEY CODEX_API_KEY OPENAI_BASE_URL
+unset_isolated OPENAI_API_KEY CODEX_API_KEY CODEX_ACCESS_TOKEN OPENAI_BASE_URL $EXTRA_UNSET_ENV
 
 . "$AGENT_REPO/env/git-agent-env.sh"
 

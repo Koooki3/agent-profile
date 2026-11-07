@@ -32,6 +32,7 @@ codex-alice login                    # 无头机器加 --device-auth
 | `PROFILE_HOME` | 活动目录(凭据/会话/二进制),默认 `~/.agent-profiles/$AGENT_NAME` |
 | `AGENT_GIT_NAME` / `AGENT_GIT_EMAIL` | agent 提交使用的 Git 身份。未设置时用占位身份,doctor 警告 |
 | `KEEP_ENV` | 启动器默认清除的凭据类环境变量中,需要保留的(空格分隔) |
+| `EXTRA_UNSET_ENV` | 额外要清除的环境变量(云服务/集群/`SSH_AUTH_SOCK` 等),默认不清除 |
 | `MODULES` / `WORKSPACE_ROOT` | 启用的配置片段与 `@WORKSPACE_ROOT@` 的值,见 `modules/README.md` |
 | `SKILLS` | 启用哪些 skills(空格分隔 / `all` / 留空=不装);不设 = `skills.conf` 全部 |
 | `CODEX_ACCESS` | codex 沙盒预设 `safe` / `dev`(默认) / `full` / `none`,见下文「codex 功能受限怎么办」 |
@@ -44,7 +45,7 @@ codex-alice login                    # 无头机器加 --device-auth
 |---|---|
 | 同步最新仓库配置 | `./bootstrap.sh --sync` |
 | 自检(隔离性/漂移/版本/登录/密钥与路径扫描) | `./doctor.sh`(加 `--deep` 额外检查 codex 沙盒与配置键) |
-| 把在线改动(如 skill 被修改)收回仓库 | `./import-live.sh`,然后 `git diff` → 提交 |
+| 把在线改动(如 skill 被修改)收回仓库 | `./import-live.sh --dry-run` 预览 → `./import-live.sh` → `git diff` 审阅 → 提交(含软链/特殊文件的 skill 会被拒绝导入) |
 | 启用/停用 skill | 改 `profile.env` 的 `SKILLS` → `./bootstrap.sh`(停用的移到 `skills-disabled/`,不删除) |
 | 升级 claude/codex | 改 `pins.env`(或在 `profile.env` 覆盖 `CLAUDE_VERSION`/`CODEX_VERSION`)→ `./bootstrap.sh` |
 | 只刷新配置、不联网 | `./bootstrap.sh --skip-install --no-link` |
@@ -52,19 +53,38 @@ codex-alice login                    # 无头机器加 --device-auth
 | 跑仓库自带的冒烟测试 | `tests/smoke.sh`(临时 HOME + 桩二进制,不联网) |
 
 `bootstrap.sh` 覆盖任何与仓库不一致的 live 文件之前,先把旧版本备份到
-`PROFILE_HOME/.profile-state/backups/<时间戳>/`。
+`PROFILE_HOME/.profile-state/backups/<时间戳-PID>/`。同一 profile 同时只允许一个 bootstrap;末尾 doctor 报 FAIL 时 bootstrap 以非零退出。
 
 ## 隔离了什么、没隔离什么
 启动器做的事(`doctor [1]` 行为级验证):
 - `CLAUDE_CONFIG_DIR` / `CODEX_HOME` 指向你自己的目录,凭据、会话、设置互不可见;
 - 清除可能属于共享账号的凭据环境变量(`ANTHROPIC_API_KEY` `ANTHROPIC_AUTH_TOKEN` `ANTHROPIC_BASE_URL`
-  `CLAUDE_CODE_OAUTH_TOKEN` `CLAUDE_CODE_USE_BEDROCK/VERTEX`、`OPENAI_API_KEY` `CODEX_API_KEY` `OPENAI_BASE_URL`),
-  是你自己的凭据就用 `KEEP_ENV` 保留;
+  `CLAUDE_CODE_OAUTH_TOKEN` `CLAUDE_CODE_USE_BEDROCK/VERTEX`、`OPENAI_API_KEY` `CODEX_API_KEY` `CODEX_ACCESS_TOKEN`
+  `OPENAI_BASE_URL`、`GH_TOKEN` `GITHUB_TOKEN` `GH_ENTERPRISE_TOKEN` `GITHUB_ENTERPRISE_TOKEN`),
+  是你自己的凭据就用 `KEEP_ENV` 保留;其他变量用 `EXTRA_UNSET_ENV` 追加清除;
+- 把 `CODEX_SQLITE_HOME` 绑定到本 profile 的 codex 目录;
 - 关闭 claude 自动更新,二进制装在你的 `PROFILE_HOME` 内(安装时 `HOME` 重定向,不写共享安装与 shell rc);
 - 注入你的 Git 身份,移除共享终端的 askpass,清空 `credential.helper`。
 
-**这不是安全沙箱。** 如果多人共用的是**同一个系统账号**,所有人对文件系统的权限相同;
-`chmod 700` 只能挡住其他系统用户,挡不住同账号的其他人。需要强隔离请用各自独立的系统账号或容器。
+**这不是安全沙箱,也不是多租户运行时。** 如果多人共用的是**同一个系统账号**,所有人对文件系统的权限相同;
+`chmod 700` 只能挡住其他系统用户,挡不住同账号的其他人。需要强隔离请用各自独立的系统账号或容器。按需求选择保护级别:
+
+| 场景 | 建议 |
+|---|---|
+| 一人多账号、并行开发 | 本仓库的 profile 即可(防串配置/凭据/身份) |
+| 多人、各自独立 SSH 系统用户 | 每人一个系统用户 + 本仓库 profile;内核文件权限提供跨用户隔离 |
+| 多人且 agent 要执行不可信代码 | 独立系统用户 + 容器/命名空间等运行时隔离(本仓库不提供) |
+| 多人共用同一个系统账号 | 本仓库只能防"误串",防不了"有意读取";需要强隔离请换成上一行的方案 |
+
+已知且**尚未**覆盖的点(欢迎 PR):
+- Git 提交身份由本仓库固定,但 **远端认证主体**(`SSH_AUTH_SOCK`、`~/.ssh` 默认密钥、`gh` 登录态)不受控,
+  push 可能以别人的身份发出。需要时用 `EXTRA_UNSET_ENV=SSH_AUTH_SOCK` 并为本 profile 配专用 deploy key
+  (`core.sshCommand` + `IdentitiesOnly`)。
+- 环境变量隔离是**黑名单**(默认清单 + `EXTRA_UNSET_ENV`),不是白名单继承;未列出的变量会被继承。
+- `CODEX_ACCESS` 的 `safe`/`dev` 只约束 codex 的命令执行,不会隐藏同一系统账号能读的其他目录。
+- 部署不是事务:有 `flock` 防并发 bootstrap、覆盖前备份,但进程被强杀可能留下部分更新的状态(重跑 `bootstrap.sh` 即可收敛)。
+  备份目录 `.profile-state/backups/` 不会自动清理,且可能含旧凭据类配置,请定期手动清理。
+- doctor 只检查凭据文件是否存在,检测不到存放在系统 keyring 里的登录态;密钥扫描是已知格式的正则,不替代 gitleaks 等工具。
 
 ## codex 功能受限怎么办
 独立 profile 用的是全新的 `CODEX_HOME`,不继承共享 codex 的 `config.toml`、信任目录和已批准的命令规则,

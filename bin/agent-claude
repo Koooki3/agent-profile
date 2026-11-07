@@ -15,7 +15,8 @@ export DISABLE_AUTOUPDATER=1
 
 # 不继承可能属于共享账号/他人的 Anthropic 凭据与路由(KEEP_ENV 可显式保留)
 unset_isolated ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN ANTHROPIC_BASE_URL CLAUDE_CODE_OAUTH_TOKEN \
-               CLAUDE_CODE_USE_BEDROCK CLAUDE_CODE_USE_VERTEX
+               CLAUDE_CODE_USE_BEDROCK CLAUDE_CODE_USE_VERTEX \
+               $EXTRA_UNSET_ENV
 
 # 独立 Git 身份与凭据隔离
 . "$AGENT_REPO/env/git-agent-env.sh"

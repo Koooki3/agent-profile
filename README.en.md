@@ -51,8 +51,14 @@ Launchers set `CLAUDE_CONFIG_DIR` / `CODEX_HOME` to your own dirs, unset credent
 `CODEX_API_KEY`, `OPENAI_BASE_URL`) unless listed in `KEEP_ENV`, disable Claude auto-update, install binaries under
 `PROFILE_HOME` with `HOME` redirected, and inject your Git identity with askpass/credential helpers cleared.
 
-**This is not a security sandbox.** If people share the *same OS account* they have identical filesystem access;
+**This is not a security sandbox or a multi-tenant runtime.** If people share the *same OS account* they have identical filesystem access;
 `chmod 700` only keeps out other OS users. Use separate OS accounts or containers for hard isolation.
+
+Known gaps (PRs welcome): the *remote* auth principal for git (`SSH_AUTH_SOCK`, default `~/.ssh` keys, `gh` login) is not controlled
+(use `EXTRA_UNSET_ENV=SSH_AUTH_SOCK` plus a dedicated deploy key); env isolation is a denylist (defaults + `EXTRA_UNSET_ENV`), not an allowlist;
+`CODEX_ACCESS` presets constrain codex commands but do not hide other readable directories; deployment is lock-protected (`flock`) and
+backed up but not transactional; backups are not auto-pruned; doctor cannot see credentials stored in a keyring.
+Also cleared by default: `GH_TOKEN`, `GITHUB_TOKEN`, `GH_ENTERPRISE_TOKEN`, `GITHUB_ENTERPRISE_TOKEN`, `CODEX_ACCESS_TOKEN`; `CODEX_SQLITE_HOME` is bound to the profile.
 
 ## Notes
 - Binaries are installed with the official `install.sh` scripts (downloaded and executed, not checksum-verified); versions come from `pins.env`.

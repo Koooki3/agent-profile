@@ -91,6 +91,39 @@ tn "重复表被校验拦截(不写入坏配置)" env -i HOME="$HOME_T" PATH="$P
 t "CODEX_ACCESS=none + 自定义表可用" env -i HOME="$HOME_T" PATH="$PATH" CODEX_ACCESS=none MODULES=dup "$R/bootstrap.sh" --skip-install --no-doctor
 tn "无效 CODEX_ACCESS 被拒绝"    env -i HOME="$HOME_T" PATH="$PATH" CODEX_ACCESS=bogus "$R/bootstrap.sh" --skip-install --no-doctor
 
+echo "[B3] 部署可靠性与输入校验"
+mkdir -p "$PH/modules.local/ok"
+tn "module 名含 .. 被拒绝"           env -i HOME="$HOME_T" PATH="$PATH" MODULES="../x" "$R/bootstrap.sh" --skip-install --no-doctor
+tn "module 名含 / 被拒绝"            env -i HOME="$HOME_T" PATH="$PATH" MODULES="a/b" "$R/bootstrap.sh" --skip-install --no-doctor
+tn "PROFILE_HOME 在 ~/.claude 内被拒绝" env -i HOME="$HOME_T" PATH="$PATH" PROFILE_HOME="$HOME_T/.claude/p" "$R/bootstrap.sh" --skip-install --no-doctor
+tn "PROFILE_HOME 是 \$HOME 上级被拒绝" env -i HOME="$HOME_T" PATH="$PATH" PROFILE_HOME="$(dirname "$HOME_T")" "$R/bootstrap.sh" --skip-install --no-doctor
+tn "PROFILE_HOME 在仓库内被拒绝"      env -i HOME="$HOME_T" PATH="$PATH" PROFILE_HOME="$R/sub" "$R/bootstrap.sh" --skip-install --no-doctor
+# doctor 失败必须让 bootstrap 返回非零: 新环境没有二进制 -> doctor FAIL
+mkenv f; printf 'AGENT_NAME=fail1\n' >"$R/profile.env"
+tn "doctor FAIL 时 bootstrap 非零退出" env -i HOME="$HOME_T" PATH="$PATH" "$R/bootstrap.sh" --skip-install --no-link
+# 并发锁: 持有锁时第二个 bootstrap 应立即失败
+mkenv g; printf 'AGENT_NAME=lock1\n' >"$R/profile.env"; GPH="$HOME_T/.agent-profiles/lock1"; mkdir -p "$GPH/.profile-state"
+tn "已有 bootstrap 持锁时拒绝并发" bash -c "exec 8>'$GPH/.profile-state/bootstrap.lock'; flock -n 8; env -i HOME='$HOME_T' PATH='$PATH' '$R/bootstrap.sh' --skip-install --no-doctor"
+t  "锁释放后可正常运行"            env -i HOME="$HOME_T" PATH="$PATH" "$R/bootstrap.sh" --skip-install --no-doctor
+# 凭据 canary: GitHub/Codex 令牌与状态位置
+mkenv h; PHH="$HOME_T/.agent-profiles/h1"; stub_bins "$PHH"; printf 'AGENT_NAME=h1\n' >"$R/profile.env"
+env -i HOME="$HOME_T" PATH="$PATH" "$R/bootstrap.sh" --skip-install --no-link --no-doctor >/dev/null 2>&1
+CAN="$(env -i HOME="$HOME_T" PATH="$PATH" GH_TOKEN=c1 GITHUB_TOKEN=c2 CODEX_ACCESS_TOKEN=c3 CODEX_SQLITE_HOME=/elsewhere AWS_PROFILE=c4 "$R/bin/agent-codex")"
+t "canary: GH/GITHUB/CODEX_ACCESS 令牌被清除" bash -c "! grep -qE '^(GH_TOKEN|GITHUB_TOKEN|CODEX_ACCESS_TOKEN)=' <<<'$CAN'"
+t "canary: CODEX_SQLITE_HOME 被强制绑定"    bash -c "grep -q '^CODEX_SQLITE_HOME=$PHH/codex\$' <<<'$CAN'"
+t "canary: 未列入的变量默认保留(AWS_PROFILE)" bash -c "grep -q '^AWS_PROFILE=c4\$' <<<'$CAN'"
+CAN2="$(env -i HOME="$HOME_T" PATH="$PATH" AWS_PROFILE=c4 EXTRA_UNSET_ENV=AWS_PROFILE "$R/bin/agent-codex")"
+t "EXTRA_UNSET_ENV 额外清除"               bash -c "! grep -q '^AWS_PROFILE=' <<<'$CAN2'"
+# import-live: 软链被拒绝, --dry-run 不改仓库
+mkdir -p "$PHH/claude/skills/evil" "$PHH/claude/skills/good"
+printf -- '---\nname: evil\n---\n' >"$PHH/claude/skills/evil/SKILL.md"; ln -s /etc/passwd "$PHH/claude/skills/evil/leak"
+printf -- '---\nname: good\n---\n' >"$PHH/claude/skills/good/SKILL.md"
+env -i HOME="$HOME_T" PATH="$PATH" "$R/import-live.sh" --dry-run >/dev/null 2>&1
+t  "import-live --dry-run 不写仓库"       test ! -e "$R/skills/good"
+env -i HOME="$HOME_T" PATH="$PATH" "$R/import-live.sh" >/dev/null 2>&1
+t  "import-live 导入正常 skill"           test -f "$R/skills/good/SKILL.md"
+t  "import-live 拒绝含软链的 skill"        test ! -e "$R/skills/evil"
+
 echo "[C] 路径推导 / 非法输入"
 mkenv c; mkdir -p "$HOME_T/.agent-profiles/carol"; R2="$HOME_T/.agent-profiles/carol/repo"; mv "$R" "$R2"
 stub_bins "$HOME_T/.agent-profiles/carol"

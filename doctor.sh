@@ -15,7 +15,7 @@ say "[1] 启动器隔离(以 env 代替真实二进制,观察注入环境)"
 stub="$(mktemp)"; printf '#!/bin/sh\nexec /usr/bin/env\n' >"$stub"; chmod +x "$stub"   # 忽略参数,只打印环境
 probe() { # launcher bin-var [extra env assignments...]
   local l="$1" v="$2"; shift 2
-  env ANTHROPIC_API_KEY=leak ANTHROPIC_AUTH_TOKEN=leak OPENAI_API_KEY=leak CODEX_API_KEY=leak GIT_ASKPASS=/x VSCODE_GIT_ASKPASS_MAIN=/x \
+  env ANTHROPIC_API_KEY=leak ANTHROPIC_AUTH_TOKEN=leak OPENAI_API_KEY=leak CODEX_API_KEY=leak CODEX_ACCESS_TOKEN=leak GH_TOKEN=leak GITHUB_TOKEN=leak CODEX_SQLITE_HOME=/elsewhere GIT_ASKPASS=/x VSCODE_GIT_ASKPASS_MAIN=/x \
       PROFILE_HOME="$PROFILE_HOME" AGENT_NAME="$AGENT_NAME" "$v=$stub" "$@" "$REPO/bin/$l" 2>&1
 }
 chk() { grep -qE "$2" <<<"$1" && ok "$3" || bad "$3"; }
@@ -26,6 +26,7 @@ chk     "$out" '^DISABLE_AUTOUPDATER=1$'                  "claude: 自动更新�
 chk_not "$out" '^ANTHROPIC_(API_KEY|AUTH_TOKEN)='         "claude: 不继承 Anthropic 凭据"
 chk     "$out" '^GIT_AUTHOR_EMAIL=.+'                     "claude: 独立 Git 身份已注入"
 chk     "$out" '^GIT_CONFIG_KEY_2=credential.helper$'     "claude: credential.helper 已清空"
+chk_not "$out" '^(GH_TOKEN|GITHUB_TOKEN)='                "claude: 不继承 GitHub 令牌"
 chk_not "$out" '^(GIT_ASKPASS|VSCODE_GIT_ASKPASS_MAIN)='  "claude: 共享终端 askpass 已移除"
 out="$(probe agent-claude AGENT_CLAUDE_BIN KEEP_ENV=ANTHROPIC_API_KEY)" || true
 chk     "$out" '^ANTHROPIC_API_KEY=leak$'                 "claude: KEEP_ENV 可显式保留变量"
@@ -33,7 +34,9 @@ out="$(probe agent-codex AGENT_CODEX_BIN)" || true
 chk     "$out" "^CODEX_HOME=$PROFILE_HOME/codex\$"        "codex: CODEX_HOME 指向独立目录"
 chk     "$out" '^GIT_AUTHOR_EMAIL=.+'                     "codex: 独立 Git 身份已注入"
 chk_not "$out" '^(GIT_ASKPASS|VSCODE_GIT_ASKPASS_MAIN)='  "codex: 共享终端 askpass 已移除"
-chk_not "$out" '^(OPENAI_API_KEY|CODEX_API_KEY)='         "codex: 不继承 OpenAI 凭据"
+chk_not "$out" '^(OPENAI_API_KEY|CODEX_API_KEY|CODEX_ACCESS_TOKEN)=' "codex: 不继承 OpenAI/Codex 凭据"
+chk     "$out" "^CODEX_SQLITE_HOME=$PROFILE_HOME/codex\$"  "codex: 状态库位置绑定到本 profile"
+chk_not "$out" '^(GH_TOKEN|GITHUB_TOKEN)='                "codex: 不继承 GitHub 令牌"
 [ $GIT_IDENTITY_IS_DEFAULT -eq 0 ] || wr "未设置 AGENT_GIT_NAME/AGENT_GIT_EMAIL,当前用占位身份 $AGENT_GIT_NAME <$AGENT_GIT_EMAIL>(profile.env 配置)"
 
 say "[2] 配置漂移(live 与重新渲染结果对比)"
@@ -108,9 +111,9 @@ for pair in "agent-claude:$LAUNCHER_CLAUDE" "agent-codex:$LAUNCHER_CODEX"; do
   if [ -L "$t" ] && [ "$(readlink -f "$t")" = "$REPO/bin/${pair%%:*}" ]; then ok "${pair##*:} 已链接到 $BIN_DIR"; else wr "${pair##*:} 未链接到 $BIN_DIR(bootstrap.sh 会创建;或直接运行 $REPO/bin/${pair%%:*})"; fi
 done
 
-say "[5] 登录状态(只检查文件是否存在,不读取内容)"
-[ -s "$PROFILE_HOME/claude/.credentials.json" ] && ok "claude 已登录" || wr "claude 未登录: $LAUNCHER_CLAUDE → /login"
-[ -s "$PROFILE_HOME/codex/auth.json" ] && ok "codex 已登录" || wr "codex 未登录: $LAUNCHER_CODEX login"
+say "[5] 登录状态(只检查凭据文件是否存在,不读取内容;存放在 keyring 的凭据检测不到)"
+[ -s "$PROFILE_HOME/claude/.credentials.json" ] && ok "claude 已登录" || wr "未检测到 claude 登录文件(凭据也可能在系统 keyring 中,此项仅为提示): $LAUNCHER_CLAUDE → /login"
+[ -s "$PROFILE_HOME/codex/auth.json" ] && ok "codex 已登录" || wr "未检测到 codex 登录文件(凭据也可能在系统 keyring 中,此项仅为提示): $LAUNCHER_CODEX login"
 
 say "[6] 仓库内容安全扫描"
 if git -C "$REPO" rev-parse >/dev/null 2>&1; then

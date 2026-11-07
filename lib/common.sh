@@ -9,7 +9,7 @@ warn() { printf 'WARN: %s\n' "$*" >&2; }
 die()  { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
 # ---------- 配置来源优先级: 环境变量 > profile.env > 默认值 ----------
-_CFG_VARS="PROFILE_HOME AGENT_NAME AGENT_GIT_NAME AGENT_GIT_EMAIL WORKSPACE_ROOT MODULES SKILLS CODEX_BIN KEEP_ENV BIN_DIR CODEX_ACCESS CODEX_TRUSTED_DIRS"
+_CFG_VARS="PROFILE_HOME AGENT_NAME AGENT_GIT_NAME AGENT_GIT_EMAIL WORKSPACE_ROOT MODULES SKILLS CODEX_BIN KEEP_ENV EXTRA_UNSET_ENV BIN_DIR CODEX_ACCESS CODEX_TRUSTED_DIRS"
 for _v in $_CFG_VARS; do
   if [ -n "${!_v+x}" ]; then printf -v "_o_$_v" '%s' "${!_v}"; fi
 done
@@ -42,12 +42,19 @@ AGENT_NAME="${AGENT_NAME:-$(basename "$PROFILE_HOME")}"
 [[ "$AGENT_NAME" =~ ^[a-z0-9][a-z0-9_-]{0,31}$ ]] \
   || die "AGENT_NAME='$AGENT_NAME' 不合法(小写字母/数字/_/-,以字母或数字开头,最长 32);请在 profile.env 设置 AGENT_NAME"
 case "$PROFILE_HOME" in /*) ;; *) die "PROFILE_HOME 必须是绝对路径: $PROFILE_HOME";; esac
-[ "$(readlink -f "$PROFILE_HOME")" != "$(readlink -f "$HOME")" ] && [ "$(readlink -f "$PROFILE_HOME")" != "/" ] \
-  || die "PROFILE_HOME 不能是 \$HOME 或 /: $PROFILE_HOME"
+# PROFILE_HOME 保护: 不能是 $HOME 或其上级、不能在 ~/.claude ~/.codex ~/.ssh ~/.gnupg 内、不能是仓库本身或其子目录
+_ph="$(readlink -m "$PROFILE_HOME")"; _home="$(readlink -f "$HOME")"
+case "$_home/" in "$_ph"/*) die "PROFILE_HOME 不能是 \$HOME 或其上级目录: $PROFILE_HOME";; esac
+for _d in .claude .codex .ssh .gnupg; do
+  case "$_ph/" in "$_home/$_d/"*) die "PROFILE_HOME 不能位于 ~/$_d 内(那是共享安装/密钥目录): $PROFILE_HOME";; esac
+done
+case "$_ph/" in "$REPO/"*) die "PROFILE_HOME 不能是仓库目录本身或其子目录: $PROFILE_HOME";; esac
+unset _ph _home _d
 
 WORKSPACE_ROOT="${WORKSPACE_ROOT:-$HOME/work}"
 MODULES="${MODULES:-}"
 KEEP_ENV="${KEEP_ENV:-}"
+EXTRA_UNSET_ENV="${EXTRA_UNSET_ENV:-}"
 CODEX_ACCESS="${CODEX_ACCESS:-dev}"
 CODEX_TRUSTED_DIRS="${CODEX_TRUSTED_DIRS:-}"
 [[ "$CODEX_ACCESS" =~ ^[a-z]+$ ]] && { [ "$CODEX_ACCESS" = none ] || [ -f "$REPO/codex/presets/$CODEX_ACCESS.toml" ]; } \
@@ -59,7 +66,7 @@ if [ -z "${AGENT_GIT_NAME:-}" ] || [ -z "${AGENT_GIT_EMAIL:-}" ]; then GIT_IDENT
 AGENT_GIT_NAME="${AGENT_GIT_NAME:-$AGENT_NAME}"
 AGENT_GIT_EMAIL="${AGENT_GIT_EMAIL:-$AGENT_NAME@users.noreply.invalid}"
 STATE="$PROFILE_HOME/.profile-state"
-TS="$(date -u +%Y%m%dT%H%M%SZ)"
+TS="$(date -u +%Y%m%dT%H%M%SZ)-$$"   # 带 PID,同一秒内的多次运行不共用备份目录
 BK="$STATE/backups/$TS"
 HOSTS="claude codex"
 LAUNCHER_CLAUDE="claude-$AGENT_NAME"
@@ -154,6 +161,7 @@ module_dir() {
 enabled_modules() {
   local m
   for m in $MODULES; do
+    [[ "$m" =~ ^[A-Za-z0-9_][A-Za-z0-9._-]*$ && "$m" != *..* ]] || die "非法 module 名 '$m'(只允许单段名称: 字母/数字/_/./-,不含 .. 与 /)"
     [[ "$m" != _* ]] || die "module '$m' 是模板(以 _ 开头),请先复制为新名字: cp -r modules/_template \"$PROFILE_HOME/modules.local/<name>\""
     module_dir "$m" >/dev/null || die "unknown module: $m (找不到 modules.local/$m 或 modules/$m)"
     echo "$m"
@@ -188,7 +196,7 @@ PY
 # skills/skills.conf 是目录("name = host1,host2" 为该 skill 可用的 host)。
 # 启用哪些由 SKILLS 决定: 未设置 = skills.conf 里全部(兼容旧行为);"all" = 全部;空 = 一个都不启用;
 # 其余 = 空格分隔的名字列表。
-skill_names() { grep -E '^[A-Za-z0-9._-]+[[:space:]]*=' "$REPO/skills/skills.conf" | sed -E 's/[[:space:]]*=.*//'; }
+skill_names() { grep -E '^[A-Za-z0-9][A-Za-z0-9._-]*[[:space:]]*=' "$REPO/skills/skills.conf" | sed -E 's/[[:space:]]*=.*//'; }
 skill_enabled() {
   [ -z "${SKILLS+x}" ] && return 0
   [ "$SKILLS" = all ] && return 0

@@ -7,7 +7,7 @@
 #   --no-doctor                 跳过最后的自检
 #   --zsh                       渲染 PROFILE_HOME/zsh/.zshrc(需让该 SSH 会话 export ZDOTDIR=PROFILE_HOME/zsh)
 # 配置: profile.env 或同名环境变量(环境变量优先): AGENT_NAME PROFILE_HOME AGENT_GIT_NAME AGENT_GIT_EMAIL
-#       WORKSPACE_ROOT MODULES SKILLS CODEX_BIN CODEX_ACCESS CODEX_TRUSTED_DIRS KEEP_ENV BIN_DIR
+#       WORKSPACE_ROOT MODULES SKILLS CODEX_BIN CODEX_ACCESS CODEX_TRUSTED_DIRS KEEP_ENV EXTRA_UNSET_ENV BIN_DIR
 set -euo pipefail
 . "$(dirname "$(readlink -f "$0")")/lib/common.sh"
 
@@ -23,6 +23,13 @@ enabled_modules >/dev/null   # 提前校验 MODULES,名字写错就在这里终�
 check_skills                 # 提前校验 SKILLS
 [ $GIT_IDENTITY_IS_DEFAULT -eq 0 ] || warn "未设置 AGENT_GIT_NAME/AGENT_GIT_EMAIL,agent 提交将使用占位身份 '$AGENT_GIT_NAME <$AGENT_GIT_EMAIL>';请在 profile.env 配置"
 mkdir -p "$PROFILE_HOME"/{claude,codex,claude-home,codex-home,tools} "$STATE"
+# 同一 profile 同时只允许一个 bootstrap(配置/skills/启动器逐项修改,并发会互相覆盖)
+if command -v flock >/dev/null; then
+  exec 9>"$STATE/bootstrap.lock"
+  flock -n 9 || die "另一个 bootstrap 正在操作 $PROFILE_HOME(锁: $STATE/bootstrap.lock);等它结束再试"
+else
+  warn "没有 flock,无法防止并发 bootstrap"
+fi
 # 共享机器: 整个 profile(凭据、会话、备份)只有属主可访问
 chmod 700 "$PROFILE_HOME" "$STATE" "$PROFILE_HOME/claude" "$PROFILE_HOME/codex" "$PROFILE_HOME/claude-home" "$PROFILE_HOME/codex-home"
 
@@ -119,10 +126,13 @@ if [ $INSTALL -eq 1 ]; then
   fi
 fi
 
-[ $DOCTOR -eq 1 ] && { say "== doctor"; "$REPO/doctor.sh" || true; }
+rc=0
+if [ $DOCTOR -eq 1 ]; then say "== doctor"; "$REPO/doctor.sh" || rc=$?; fi
+
 cat <<MSG
 
 下一步(每台机器、每个 profile 各做一次,凭据不在仓库里):
   $LAUNCHER_CLAUDE         # 进入后 /login
   $LAUNCHER_CODEX login    # 无头机器: $LAUNCHER_CODEX login --device-auth
 MSG
+[ $rc -eq 0 ] || { warn "doctor 报告 FAIL,部署未通过自检(退出码 $rc)"; exit "$rc"; }
