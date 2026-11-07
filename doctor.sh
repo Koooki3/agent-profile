@@ -114,8 +114,8 @@ say "[5] 登录状态(只检查文件是否存在,不读取内容)"
 
 say "[6] 仓库内容安全扫描"
 if git -C "$REPO" rev-parse >/dev/null 2>&1; then
-  files="$(git -C "$REPO" ls-files -co --exclude-standard)"
-  bad_names="$(grep -E '(^|/)(\.credentials\.json|auth\.json|\.claude\.json|profile\.env|history\.jsonl|.*\.sqlite)$' <<<"$files" || true)"
+  tracked="$(git -C "$REPO" ls-files -co --exclude-standard)"
+  bad_names="$(grep -E '(^|/)(\.credentials\.json|auth\.json|\.claude\.json|profile\.env|history\.jsonl|.*\.sqlite)$' <<<"$tracked" || true)"
   [ -z "$bad_names" ] && ok "无凭据/状态类文件名" || bad "出现不该入库的文件: $bad_names"
   hits="$(cd "$REPO" && grep -rIlE '(^|[^A-Za-z0-9_-])(sk-(ant-)?[A-Za-z0-9_-]{24,}|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|AKIA[0-9A-Z]{16})|BEGIN [A-Z ]*PRIVATE KEY|xox[bp]-[0-9A-Za-z-]{10,}' --exclude-dir=.git . || true)"
   [ -z "$hits" ] && ok "无疑似密钥内容" || bad "疑似密钥: $hits"

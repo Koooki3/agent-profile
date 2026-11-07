@@ -36,7 +36,7 @@ for n in $names; do
   else
     rm -rf "$REPO/skills/$n@codex"
   fi
-  if ! grep -qE "^$n[[:space:]]*=" "$conf"; then
+  if ! grep -qE "^${n}[[:space:]]*=" "$conf"; then
     h=""; [ -d "$C/skills/$n" ] && h="claude"; [ -d "$X/skills/$n" ] && h="${h:+$h,}codex"
     [ -n "$h" ] || h="codex"
     printf '%s = %s\n' "$n" "$h" >>"$conf"

@@ -1,4 +1,5 @@
 # shellcheck shell=bash
+# shellcheck disable=SC2034  # 这些变量由 source 本文件的脚本使用
 # 公共库: 解析 REPO / AGENT_NAME / PROFILE_HOME / 模块,提供渲染与备份函数。
 # 被 bootstrap.sh、doctor.sh、import-live.sh 与 bin/ 下的启动器 source。
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
