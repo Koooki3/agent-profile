@@ -119,4 +119,4 @@ pins.env    claude / codex / skill-loom 版本(只提供默认值)
 - skills 采用复制而非软链;未验证 Claude Code / Codex 是否都识别目录软链。
 - codex 的 `config.toml` 由 bootstrap 整体重写(旧版本先备份);codex 自己写入的 `[tui]` 状态会在下次 bootstrap 时被覆盖(doctor 比较时已忽略)。
 - 仅在 Linux(含 WSL)上验证。未覆盖: 无网络机器的离线安装、macOS/Windows。
-- 仓库没有顶层 LICENSE;fork 后请按你的需要补充(skills 目录内的 LICENSE 文件保持不动)。
+- 许可证: 仓库自有部分为 MIT(见 `LICENSE`);`skills/` 内各 skill 保留自己的 LICENSE,以其为准。

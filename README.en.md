@@ -58,5 +58,6 @@ Launchers set `CLAUDE_CONFIG_DIR` / `CODEX_HOME` to your own dirs, unset credent
 - Binaries are installed with the official `install.sh` scripts (downloaded and executed, not checksum-verified); versions come from `pins.env`.
   To avoid that, install them yourself and set `CODEX_BIN` / place claude at `PROFILE_HOME/claude-home/.local/bin/claude`.
 - Bundled `skills/` are examples (some from upstream, with their own LICENSE files); enable via `SKILLS`, replace freely.
-- Verified on Linux/WSL only. No top-level LICENSE is included; add one to your fork.
+- Verified on Linux/WSL only.
+- License: MIT for the repo's own files (`LICENSE`); each bundled skill keeps its own license.
 - Maintenance rules for agents editing this repo: `MAINTAINING.md`.
