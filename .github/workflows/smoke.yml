@@ -1,0 +1,13 @@
+name: smoke
+on: [push, pull_request]
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: syntax
+        run: bash -n bootstrap.sh doctor.sh import-live.sh lib/common.sh bin/agent-claude bin/agent-codex env/git-agent-env.sh tests/smoke.sh
+      - name: shellcheck
+        run: shellcheck -S warning bootstrap.sh doctor.sh import-live.sh lib/common.sh bin/agent-claude bin/agent-codex tests/smoke.sh
+      - name: smoke test (offline, stub binaries)
+        run: tests/smoke.sh

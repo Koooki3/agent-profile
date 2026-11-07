@@ -1,0 +1,3 @@
+{
+  "_comment": "示例: 与 claude/settings.json 深度合并(后者覆盖前者)。删掉 _comment,填入需要的设置,例如 {\"model\": \"sonnet\"}"
+}

@@ -1,0 +1,6 @@
+# dev(默认): 能写工作目录和常见包管理缓存,允许联网(装依赖、git fetch、查文档)。
+sandbox_mode = "workspace-write"
+
+[sandbox_workspace_write]
+network_access = true
+writable_roots = ["@HOME@/.cache", "@HOME@/.npm", "@HOME@/.cargo"]

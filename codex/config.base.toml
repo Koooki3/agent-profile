@@ -1,14 +1,6 @@
-sandbox_mode = "workspace-write"
-model = "gpt-6.1-sol"
-model_reasoning_effort = "max"
+# 通用基线: 只放与个人偏好和访问级别无关的默认值。
+# 沙盒/网络/可写目录由 profile.env 的 CODEX_ACCESS 选择(codex/presets/*.toml);信任目录用 CODEX_TRUSTED_DIRS。
+# 模型、推理强度等个人偏好: 放进 module 的 codex-config.toml,或 PROFILE_HOME/config.local.toml。
 [agents]
 # 子 agent 默认继承主 agent 的模型与推理强度。
 enabled = true
-
-# 实用意义上的并发上限
-max_concurrent_threads_per_session = 10
-
-[features]
-
-[sandbox_workspace_write]
-network_access = true

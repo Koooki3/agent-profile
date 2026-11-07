@@ -1,19 +1,20 @@
 #!/usr/bin/env bash
-# Personal Codex entry. All paths derive from this file's real location.
-set -e
-SELF="$(readlink -f "${BASH_SOURCE[0]}")"
-AGENT_REPO="$(dirname "$(dirname "$SELF")")"
-_PH="${PROFILE_HOME:-}"
-[ -f "$AGENT_REPO/profile.env" ] && . "$AGENT_REPO/profile.env"
-[ -n "$_PH" ] && PROFILE_HOME="$_PH"
-BASE="${PROFILE_HOME:-$(dirname "$AGENT_REPO")}"
+# 独立的 Codex 入口。bootstrap.sh 会把它链接成 codex-<AGENT_NAME>。
+set -euo pipefail
+AGENT_REPO="$(dirname "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")")"
+. "$AGENT_REPO/lib/common.sh"
+BASE="$PROFILE_HOME"
 export AGENT_PROFILE_HOME="$BASE"
 export CODEX_HOME="$BASE/codex"
+
+# 不继承可能属于共享账号的 OpenAI 凭据(KEEP_ENV 可显式保留)
+unset_isolated OPENAI_API_KEY CODEX_API_KEY OPENAI_BASE_URL
+
 . "$AGENT_REPO/env/git-agent-env.sh"
 
 # 二进制解析顺序: AGENT_CODEX_BIN > profile.env 的 CODEX_BIN > profile 内私有安装 > PATH 上的 codex(共享,doctor 会警告)
 bin="${AGENT_CODEX_BIN:-${CODEX_BIN:-}}"
 [ -z "$bin" ] && [ -x "$BASE/codex-home/.local/bin/codex" ] && bin="$BASE/codex-home/.local/bin/codex"
 [ -z "$bin" ] && bin="$(command -v codex || true)"
-[ -n "$bin" ] || { echo "codex executable not found; run bootstrap.sh" >&2; exit 127; }
+[ -n "$bin" ] || { echo "codex executable not found; run $AGENT_REPO/bootstrap.sh" >&2; exit 127; }
 exec "$bin" --no-daemon "$@"

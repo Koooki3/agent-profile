@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# 独立的 Claude Code 入口。bootstrap.sh 会把它链接成 claude-<AGENT_NAME>。
+# 所有路径由本文件的真实位置与 profile.env 推导,不依赖当前用户名或目录。
+set -euo pipefail
+AGENT_REPO="$(dirname "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")")"
+. "$AGENT_REPO/lib/common.sh"
+BASE="$PROFILE_HOME"
+export AGENT_PROFILE_HOME="$BASE"
+
+# 使用独立的 Claude 配置目录(凭据、会话、设置都在这里)
+export CLAUDE_CONFIG_DIR="$BASE/claude"
+
+# 避免自动更新影响共享机器上其他用户的安装
+export DISABLE_AUTOUPDATER=1
+
+# 不继承可能属于共享账号/他人的 Anthropic 凭据与路由(KEEP_ENV 可显式保留)
+unset_isolated ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN ANTHROPIC_BASE_URL CLAUDE_CODE_OAUTH_TOKEN \
+               CLAUDE_CODE_USE_BEDROCK CLAUDE_CODE_USE_VERTEX
+
+# 独立 Git 身份与凭据隔离
+. "$AGENT_REPO/env/git-agent-env.sh"
+
+bin="${AGENT_CLAUDE_BIN:-$BASE/claude-home/.local/bin/claude}"   # AGENT_CLAUDE_BIN 仅用于测试(doctor)或自定义二进制
+[ -x "$bin" ] || { echo "claude executable not found: $bin (run $AGENT_REPO/bootstrap.sh)" >&2; exit 127; }
+exec "$bin" "$@"

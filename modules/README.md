@@ -10,8 +10,12 @@
 | `claude.md` | `PROFILE_HOME/claude/CLAUDE.md`(在 base 之后) |
 | `codex.md` | `PROFILE_HOME/codex/AGENTS.md`(在 base 之后) |
 | `codex-config.toml` | `PROFILE_HOME/codex/config.toml`(在 base 之后) |
+| `claude-settings.json` | 与 `claude/settings.json` 深度合并后写入 `PROFILE_HOME/claude/settings.json`(需要 python3) |
 
-文本里的 `@WORKSPACE_ROOT@` 会替换为 `profile.env` 的 `WORKSPACE_ROOT`。
+文本里的 `@WORKSPACE_ROOT@`、`@AGENT_NAME@` 会替换为 `profile.env` 里的 `WORKSPACE_ROOT`、`AGENT_NAME`。
+
+只属于你本人、不想进任何 module 的设置:`PROFILE_HOME/config.local.toml`(拼到 codex 配置末尾)、
+`PROFILE_HOME/claude-settings.local.json`(最后合并进 claude 设置)。
 
 ## 放在哪里
 - `modules/<name>/`(本仓库): 通用、可公开给所有机器的片段。

@@ -1,0 +1,2 @@
+# safe: 只能写工作目录,无网络。最保守,适合不信任的代码。
+sandbox_mode = "workspace-write"

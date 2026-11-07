@@ -1,5 +1,6 @@
 # 继承原有终端设置
 [[ -r "$HOME/.zshrc" ]] && source "$HOME/.zshrc"
 
-# 个人 SSH 会话: 让共享的 claude / codex 命令不受个人配置影响
+# 该会话里的 claude / codex 命令仍走共享版本,不受独立 profile 影响
+export AGENT_PROFILE_HOME="@PROFILE_HOME@"
 source "@REPO@/env/shared-cli-shell.zsh"

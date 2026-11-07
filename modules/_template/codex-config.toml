@@ -1,3 +1,8 @@
-# 示例: 信任某个项目目录(取消注释并改名)
+# 示例(取消注释并改名): 个人偏好与信任目录。顶层键与 [表] 可混写,拼接时顶层键会被提到所有表之前。
+# model = "<model>"
+# model_reasoning_effort = "high"
+# [sandbox_workspace_write]
+# network_access = true      # 默认关闭(通用基线更保守)
+#
 # [projects."@WORKSPACE_ROOT@/<project-dir>"]
 # trust_level = "trusted"

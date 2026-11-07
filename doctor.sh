@@ -1,37 +1,48 @@
 #!/usr/bin/env bash
 # 自检: 隔离性(行为级)、配置/skills 漂移、版本、登录状态、仓库密钥扫描。
 # 退出码: 0 = 无 FAIL;1 = 有 FAIL。WARN 不影响退出码。
+#   ./doctor.sh          离线自检
+#   ./doctor.sh --deep   额外运行 `codex doctor --strict-config`(检查配置键是否被识别、沙盒组件是否可用;会访问网络)
 set -uo pipefail
+DEEP=0; for a in "$@"; do case "$a" in --deep) DEEP=1;; -h|--help) sed -n '2,5p' "$0"; exit 0;; *) echo "unknown option: $a" >&2; exit 2;; esac; done
 . "$(dirname "$(readlink -f "$0")")/lib/common.sh"
 fail=0; ok() { say "  ok    $*"; }; bad() { say "  FAIL  $*"; fail=1; }; wr() { say "  warn  $*"; }
 
 enabled_modules >/dev/null || exit 1
+check_skills
+say "profile: AGENT_NAME=$AGENT_NAME  PROFILE_HOME=$PROFILE_HOME"
 say "[1] 启动器隔离(以 env 代替真实二进制,观察注入环境)"
 stub="$(mktemp)"; printf '#!/bin/sh\nexec /usr/bin/env\n' >"$stub"; chmod +x "$stub"   # 忽略参数,只打印环境
-probe() { # launcher bin-var
-  env ANTHROPIC_API_KEY=leak ANTHROPIC_AUTH_TOKEN=leak OPENAI_API_KEY=keep GIT_ASKPASS=/x VSCODE_GIT_ASKPASS_MAIN=/x \
-      PROFILE_HOME="$PROFILE_HOME" "$2=$stub" "$REPO/bin/$1" 2>&1
+probe() { # launcher bin-var [extra env assignments...]
+  local l="$1" v="$2"; shift 2
+  env ANTHROPIC_API_KEY=leak ANTHROPIC_AUTH_TOKEN=leak OPENAI_API_KEY=leak CODEX_API_KEY=leak GIT_ASKPASS=/x VSCODE_GIT_ASKPASS_MAIN=/x \
+      PROFILE_HOME="$PROFILE_HOME" AGENT_NAME="$AGENT_NAME" "$v=$stub" "$@" "$REPO/bin/$l" 2>&1
 }
-out="$(probe claude-kooki3 AGENT_CLAUDE_BIN)" || true
 chk() { grep -qE "$2" <<<"$1" && ok "$3" || bad "$3"; }
 chk_not() { grep -qE "$2" <<<"$1" && bad "$3" || ok "$3"; }
-chk     "$out" "^CLAUDE_CONFIG_DIR=$PROFILE_HOME/claude\$" "claude: CLAUDE_CONFIG_DIR 指向个人目录"
+out="$(probe agent-claude AGENT_CLAUDE_BIN)" || true
+chk     "$out" "^CLAUDE_CONFIG_DIR=$PROFILE_HOME/claude\$" "claude: CLAUDE_CONFIG_DIR 指向独立目录"
 chk     "$out" '^DISABLE_AUTOUPDATER=1$'                  "claude: 自动更新关闭"
 chk_not "$out" '^ANTHROPIC_(API_KEY|AUTH_TOKEN)='         "claude: 不继承 Anthropic 凭据"
-chk     "$out" '^GIT_AUTHOR_EMAIL=.+'                     "claude: 个人 Git 身份已注入"
+chk     "$out" '^GIT_AUTHOR_EMAIL=.+'                     "claude: 独立 Git 身份已注入"
 chk     "$out" '^GIT_CONFIG_KEY_2=credential.helper$'     "claude: credential.helper 已清空"
 chk_not "$out" '^(GIT_ASKPASS|VSCODE_GIT_ASKPASS_MAIN)='  "claude: 共享终端 askpass 已移除"
-out="$(probe codex-kooki3 AGENT_CODEX_BIN)" || true
-chk     "$out" "^CODEX_HOME=$PROFILE_HOME/codex\$"        "codex: CODEX_HOME 指向个人目录"
-chk     "$out" '^GIT_AUTHOR_EMAIL=.+'                     "codex: 个人 Git 身份已注入"
+out="$(probe agent-claude AGENT_CLAUDE_BIN KEEP_ENV=ANTHROPIC_API_KEY)" || true
+chk     "$out" '^ANTHROPIC_API_KEY=leak$'                 "claude: KEEP_ENV 可显式保留变量"
+out="$(probe agent-codex AGENT_CODEX_BIN)" || true
+chk     "$out" "^CODEX_HOME=$PROFILE_HOME/codex\$"        "codex: CODEX_HOME 指向独立目录"
+chk     "$out" '^GIT_AUTHOR_EMAIL=.+'                     "codex: 独立 Git 身份已注入"
 chk_not "$out" '^(GIT_ASKPASS|VSCODE_GIT_ASKPASS_MAIN)='  "codex: 共享终端 askpass 已移除"
+chk_not "$out" '^(OPENAI_API_KEY|CODEX_API_KEY)='         "codex: 不继承 OpenAI 凭据"
+[ $GIT_IDENTITY_IS_DEFAULT -eq 0 ] || wr "未设置 AGENT_GIT_NAME/AGENT_GIT_EMAIL,当前用占位身份 $AGENT_GIT_NAME <$AGENT_GIT_EMAIL>(profile.env 配置)"
 
 say "[2] 配置漂移(live 与重新渲染结果对比)"
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp" "$stub"' EXIT
 # shellcheck disable=SC2046
 { compose "$REPO/claude/CLAUDE.base.md" $(module_files claude.md) | subst >"$tmp/claude.md"
   compose "$REPO/codex/AGENTS.base.md" $(module_files codex.md) | subst >"$tmp/agents.md"
-  compose "$REPO/codex/config.base.toml" $(module_files codex-config.toml) "$PROFILE_HOME/config.local.toml" | subst >"$tmp/config.toml"; }
+  printf '%s\n' "$(render_codex_config)" >"$tmp/config.toml"
+  printf '%s\n' "$(render_claude_settings)" >"$tmp/settings.json"; }
 cmpf() { if [ ! -e "$2" ]; then bad "$3 缺失(运行 bootstrap.sh)"; elif cmp -s "$1" "$2"; then ok "$3"; else wr "$3 与仓库不一致(live 被在线修改?diff 查看;bootstrap.sh 会先备份再覆盖)"; fi; }
 cmpf "$tmp/claude.md"  "$PROFILE_HOME/claude/CLAUDE.md"   "claude/CLAUDE.md"
 cmpf "$tmp/agents.md"  "$PROFILE_HOME/codex/AGENTS.md"    "codex/AGENTS.md"
@@ -42,7 +53,7 @@ for d in (a,b): d.pop('tui',None)   # tui 表由 codex 自己维护(界面状态
 sys.exit(0 if a==b else 1)
 PY
 then ok "codex/config.toml(语义一致)"; else cmpf "$tmp/config.toml" "$PROFILE_HOME/codex/config.toml" "codex/config.toml"; fi
-cmpf "$REPO/claude/settings.json" "$PROFILE_HOME/claude/settings.json" "claude/settings.json"
+cmpf "$tmp/settings.json" "$PROFILE_HOME/claude/settings.json" "claude/settings.json"
 
 say "[3] skills(按 skills.conf 逐 host 对比)"
 miss=0; drift=0; total=0
@@ -65,9 +76,41 @@ if [ -n "$xbin" ] && [ -x "$xbin" ]; then v="$("$xbin" --version 2>/dev/null | a
   [ $shared -eq 1 ] && wr "codex 来自共享安装($xbin),共享方升级会影响你;运行 bootstrap.sh(profile.env 不设 CODEX_BIN)可安装私有副本"
 else bad "未找到 codex"; fi
 
+if [ $DEEP -eq 1 ]; then
+  say "[4b] codex 沙盒与配置(codex doctor --strict-config)"
+  if [ -n "${xbin:-}" ] && [ -x "$xbin" ]; then
+    rep="$(CODEX_HOME="$PROFILE_HOME/codex" timeout 60 "$xbin" --strict-config doctor --json 2>/dev/null)" || true
+    printf '%s' "$rep" >"$tmp/deep.json"
+    python3 -I - "$tmp/deep.json" >"$tmp/deep.out" 2>&1 <<'PY' || true
+import sys, json
+try: d = json.load(open(sys.argv[1]))
+except Exception: print("skip  codex doctor 不可用或输出无法解析(版本过旧?)"); sys.exit(0)
+for k in ("config.load", "sandbox.helpers", "sandbox.filesystem_paths"):
+    c = d.get("checks", {}).get(k)
+    if not c: continue
+    st = c.get("status")
+    print(("ok    " if st == "ok" else "warn  ") + f"{k}: {c.get('summary')}")
+    if st != "ok":
+        det = c.get("details") or {}
+        for kk in ("config.toml parse", "unknown keys", "unrecognized", "error"):
+            if kk in det: print(f"        {kk}: {det[kk]}")
+        if c.get("remediation"): print(f"        提示: {c['remediation']}")
+PY
+    while IFS= read -r l; do case "$l" in ok*) ok "${l#ok    }";; warn*) wr "${l#warn  }";; skip*) wr "${l#skip  }";; *) say "$l";; esac; done <"$tmp/deep.out"
+  else wr "找不到 codex 二进制,跳过"; fi
+fi
+
+say "[5a] 目录权限与启动器链接"
+perm="$(stat -c %a "$PROFILE_HOME" 2>/dev/null || true)"
+[ -z "$perm" ] || [ "${perm: -2}" = 00 ] && ok "PROFILE_HOME 权限 ${perm:-?}(组/其他用户不可访问)" || wr "PROFILE_HOME 权限 $perm,共享机器上建议 chmod 700 $PROFILE_HOME"
+for pair in "agent-claude:$LAUNCHER_CLAUDE" "agent-codex:$LAUNCHER_CODEX"; do
+  t="$BIN_DIR/${pair##*:}"
+  if [ -L "$t" ] && [ "$(readlink -f "$t")" = "$REPO/bin/${pair%%:*}" ]; then ok "${pair##*:} 已链接到 $BIN_DIR"; else wr "${pair##*:} 未链接到 $BIN_DIR(bootstrap.sh 会创建;或直接运行 $REPO/bin/${pair%%:*})"; fi
+done
+
 say "[5] 登录状态(只检查文件是否存在,不读取内容)"
-[ -s "$PROFILE_HOME/claude/.credentials.json" ] && ok "claude 已登录" || wr "claude 未登录: claude-kooki3 → /login"
-[ -s "$PROFILE_HOME/codex/auth.json" ] && ok "codex 已登录" || wr "codex 未登录: codex-kooki3 login"
+[ -s "$PROFILE_HOME/claude/.credentials.json" ] && ok "claude 已登录" || wr "claude 未登录: $LAUNCHER_CLAUDE → /login"
+[ -s "$PROFILE_HOME/codex/auth.json" ] && ok "codex 已登录" || wr "codex 未登录: $LAUNCHER_CODEX login"
 
 say "[6] 仓库内容安全扫描"
 if git -C "$REPO" rev-parse >/dev/null 2>&1; then
